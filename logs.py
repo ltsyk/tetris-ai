@@ -1,15 +1,16 @@
-from keras.callbacks import TensorBoard
-import tensorflow as tf
+from torch.utils.tensorboard import SummaryWriter
 
-class CustomTensorBoard(TensorBoard):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.writer = tf.summary.create_file_writer(self.log_dir)
 
-    def set_model(self, model):
-        pass
+class CustomTensorBoard:
+    """Simple wrapper around SummaryWriter for unified logging."""
+
+    def __init__(self, log_dir):
+        self.writer = SummaryWriter(log_dir)
 
     def log(self, step, **stats):
-        with self.writer.as_default():
-            for name, value in stats.items():
-                tf.summary.scalar(name, value, step=step)
+        for name, value in stats.items():
+            self.writer.add_scalar(name, value, step)
+
+    def close(self):
+        self.writer.close()
+

@@ -11,15 +11,12 @@ First 10000 points, after some training.
 
 ## Requirements
 
-- Tensorflow/Jax/PyTorch
+- PyTorch (CUDA enabled if available)
 - Tensorboard
-- Keras
 - Opencv-python
 - Numpy
 - Pillow
 - Tqdm
-
-The original tests were evaluated using Keras with Tensorflow as the backend. However, new tests (`keras==3.5.0`) using Jax (`jax[cuda12]`) as the backend appear to result in faster training/predict operations (e.g., `KERAS_BACKEND="jax" python3 run.py`).
 
 ## Run
 
@@ -34,9 +31,9 @@ python3 run.py
 tensorboard --logdir ./logs
 ```
 
-- Play a game with an existing model (`sample.keras` is a previously trained model that achieved more than 800k points, using 3 Relu layers with 32 neurons each):
+- Play a game with an existing model (`sample.pt` is a previously trained model):
 ```shell
-python3 run_model.py sample.keras
+python3 run_model.py sample.pt
 ```
 
 
