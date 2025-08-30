@@ -11,15 +11,12 @@ First 10000 points, after some training.
 
 ## Requirements
 
-- Tensorflow/Jax/PyTorch
+- PyTorch (CUDA enabled if available)
 - Tensorboard
-- Keras
 - Opencv-python
 - Numpy
 - Pillow
 - Tqdm
-
-The original tests were evaluated using Keras with Tensorflow as the backend. However, new tests (`keras==3.5.0`) using Jax (`jax[cuda12]`) as the backend appear to result in faster training/predict operations (e.g., `KERAS_BACKEND="jax" python3 run.py`).
 
 ## Run
 
@@ -34,9 +31,9 @@ python3 run.py
 tensorboard --logdir ./logs
 ```
 
-- Play a game with an existing model (`sample.keras` is a previously trained model that achieved more than 800k points, using 3 Relu layers with 32 neurons each):
+- Play a game with an existing model (`sample.pt` is a previously trained model):
 ```shell
-python3 run_model.py sample.keras
+python3 run_model.py sample.pt
 ```
 
 
@@ -88,15 +85,15 @@ Each block placed yields 1 point. When clearing lines, the given score is $numbe
 
 ## Implementation
 
-The code was implemented using `Python`. For the neural network, it was used the framework `Keras`.
+The project is written in Python and relies on a PyTorch-based deep Q-network that can automatically leverage CUDA when available.
 
 #### Internal Structure
 
-The agent is formed by a deep neural network, with variable number of layers, neurons per layer, activation functions, loss function, optimizer, etc. It was chosen a neural network with 2 hidden layers (32 neurons each); the activations `ReLu` for the inner layers and the `Linear` for the last one; `Mean Squared Error` as the loss function; `Adam` as the optimizer; `Epsilon` (exploration) starting at 1 and ending at 0, when the number of episodes reaches 75%; `Discount` at 0.95 (significance given to the future rewards, instead of the immediate ones).
+The agent uses a fully connected network with configurable layers, activations, loss function and optimizer. By default it employs three hidden layers of 32 neurons with `ReLU` activations and a linear output layer. The network is optimized with Adam and a mean‑squared‑error loss. Exploration (`epsilon`) decays linearly from 1 to 0 over a configurable number of episodes, and a discount factor of 0.95 favors future rewards.
 
 #### Training
 
-For the training, the replay queue had size 20000, with a random sample of 512 selected for training each episode, using 1 epoch.
+Training samples are stored in a replay memory of 1000 transitions. Mini-batches are drawn using a PyTorch `DataLoader` that supports multiple worker threads, pinned memory and mixed‑precision on CUDA devices to speed up learning.
 
 
 
