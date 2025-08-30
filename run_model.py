@@ -7,6 +7,7 @@ from dqn_agent import DQNAgent
 from tetris import Tetris
 
 env = Tetris()
+# pass a previously saved `.pt` model file
 agent = DQNAgent(env.get_state_size(), modelFile=sys.argv[1])
 done = False
 

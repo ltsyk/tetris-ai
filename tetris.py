@@ -69,6 +69,9 @@ class Tetris:
 
 
     def __init__(self):
+        # start separate thread for window handling to avoid freezes
+        cv2.startWindowThread()
+        cv2.namedWindow('image', cv2.WINDOW_AUTOSIZE)
         self.reset()
 
     

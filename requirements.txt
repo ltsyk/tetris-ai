@@ -1,6 +1,5 @@
-tensorflow
+torch
 tensorboard
-Keras
 opencv-python
 numpy
 Pillow

@@ -7,9 +7,8 @@ from tqdm import tqdm
         
 
 # Run dqn with Tetris
-def dqn():
+def dqn(episodes: int = 3000):
     env = Tetris()
-    episodes = 3000 # total number of episodes
     max_steps = None # max number of steps per game (None for infinite)
     epsilon_stop_episode = 2000 # at what episode the random exploration stops
     mem_size = 1000 # maximum number of steps stored by the agent
@@ -23,7 +22,7 @@ def dqn():
     train_every = 1 # train every x episodes
     n_neurons = [32, 32, 32] # number of neurons for each activation layer
     activations = ['relu', 'relu', 'relu', 'linear'] # activation layers
-    save_best_model = True # saves the best model so far at "best.keras"
+    save_best_model = True # saves the best model so far at "best.pt"
 
     agent = DQNAgent(env.get_state_size(),
                      n_neurons=n_neurons, activations=activations,
@@ -64,7 +63,7 @@ def dqn():
 
         # Train
         if episode % train_every == 0:
-            agent.train(batch_size=batch_size, epochs=epochs)
+            agent.train(batch_size=batch_size, epochs=epochs, num_workers=2)
 
         # Logs
         if log_every and episode and episode % log_every == 0:
@@ -73,13 +72,13 @@ def dqn():
             max_score = max(scores[-log_every:])
 
             log.log(episode, avg_score=avg_score, min_score=min_score,
-                    max_score=max_score)
+                    max_score=max_score, epsilon=agent.epsilon)
 
         # Save model
         if save_best_model and env.get_game_score() > best_score:
             print(f'Saving a new best model (score={env.get_game_score()}, episode={episode})')
             best_score = env.get_game_score()
-            agent.save_model("best.keras")
+            agent.save_model("best.pt")
 
 
 if __name__ == "__main__":
