@@ -33,10 +33,21 @@ class DQNAgent:
         replay_start_size: Optional[int] = None,
         modelFile: Optional[str] = None,
     ) -> None:
+        state_dict = None
+        if modelFile is not None:
+            state_dict = torch.load(modelFile, map_location='cpu')
+
         if n_neurons is None:
-            n_neurons = [32, 32]
+            if state_dict is not None:
+                weight_keys = sorted(
+                    [k for k in state_dict if k.endswith('weight')],
+                    key=lambda x: int(x.split('.')[0]),
+                )
+                n_neurons = [state_dict[k].shape[0] for k in weight_keys[:-1]]
+            else:
+                n_neurons = [32, 32]
         if activations is None:
-            activations = ['relu', 'relu', 'linear']
+            activations = ['relu'] * len(n_neurons) + ['linear']
         if len(activations) != len(n_neurons) + 1:
             raise ValueError(
                 'n_neurons and activations do not match, '
@@ -68,11 +79,9 @@ class DQNAgent:
             replay_start_size = mem_size // 2
         self.replay_start_size = replay_start_size
 
-        if modelFile is not None:
-            self.model = self._build_model()
-            self.model.load_state_dict(torch.load(modelFile, map_location=self.device))
-        else:
-            self.model = self._build_model()
+        self.model = self._build_model()
+        if state_dict is not None:
+            self.model.load_state_dict(state_dict)
         self.model.to(self.device)
         self.target_model = self._build_model().to(self.device)
         self.target_model.load_state_dict(self.model.state_dict())
