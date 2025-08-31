@@ -1,13 +1,26 @@
+import random
+
+import numpy as np
+import torch
 from dqn_agent import DQNAgent
 from tetris import Tetris
 from datetime import datetime
 from statistics import mean
 from logs import CustomTensorBoard
 from tqdm import tqdm
+
+
+def set_seed(seed: int = 42) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
         
 
 # Run dqn with Tetris
 def dqn(episodes: int = 3000):
+    set_seed()
     env = Tetris()
     max_steps = None # max number of steps per game (None for infinite)
     epsilon_stop_episode = 2000 # at what episode the random exploration stops
@@ -79,6 +92,9 @@ def dqn(episodes: int = 3000):
             print(f'Saving a new best model (score={env.get_game_score()}, episode={episode})')
             best_score = env.get_game_score()
             agent.save_model("best.pt")
+
+
+    env.close()
 
 
 if __name__ == "__main__":

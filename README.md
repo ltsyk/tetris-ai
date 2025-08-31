@@ -85,7 +85,7 @@ Each block placed yields 1 point. When clearing lines, the given score is $numbe
 
 ## Implementation
 
-The code was implemented using `Python`. For the neural network, it was used the framework `Keras`.
+The code was implemented using `Python`. For the neural network, it uses the framework `PyTorch`.
 
 #### Internal Structure
 

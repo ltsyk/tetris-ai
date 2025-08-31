@@ -5,7 +5,6 @@ from typing import List, Optional
 import numpy as np
 import torch
 from torch import nn
-from torch.utils.data import DataLoader, TensorDataset
 
 
 def _get_activation(name: str):
@@ -74,10 +73,13 @@ class DQNAgent:
             self.model.load_state_dict(torch.load(modelFile, map_location=self.device))
         else:
             self.model = self._build_model()
-
         self.model.to(self.device)
+        self.target_model = self._build_model().to(self.device)
+        self.target_model.load_state_dict(self.model.state_dict())
         self.criterion = nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.model.parameters())
+        self.train_steps = 0
+        self.target_update_frequency = 10
 
     def _build_model(self) -> nn.Module:
         layers: List[nn.Module] = []
@@ -126,26 +128,25 @@ class DQNAgent:
         n = len(self.memory)
         if n >= self.replay_start_size and n >= batch_size:
             batch = random.sample(self.memory, batch_size)
-            states = torch.tensor([b[0] for b in batch], dtype=torch.float32)
-            next_states = torch.tensor([b[1] for b in batch], dtype=torch.float32).to(self.device)
-            rewards = torch.tensor([b[2] for b in batch], dtype=torch.float32).to(self.device)
-            dones = torch.tensor([b[3] for b in batch], dtype=torch.float32).to(self.device)
+            states = torch.tensor([b[0] for b in batch], dtype=torch.float32, device=self.device)
+            next_states = torch.tensor([b[1] for b in batch], dtype=torch.float32, device=self.device)
+            rewards = torch.tensor([b[2] for b in batch], dtype=torch.float32, device=self.device)
+            dones = torch.tensor([b[3] for b in batch], dtype=torch.float32, device=self.device)
 
             with torch.no_grad():
-                next_qs = self.model(next_states).squeeze()
+                next_qs = self.target_model(next_states).squeeze()
             targets = rewards + (1 - dones) * self.discount * next_qs
 
-            dataset = TensorDataset(states, targets.cpu())
-            loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
             for _ in range(epochs):
-                for s, t in loader:
-                    s = s.to(self.device)
-                    t = t.to(self.device)
-                    pred = self.model(s).squeeze()
-                    loss = self.criterion(pred, t)
-                    self.optimizer.zero_grad()
-                    loss.backward()
-                    self.optimizer.step()
+                pred = self.model(states).squeeze()
+                loss = self.criterion(pred, targets)
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+
+            self.train_steps += 1
+            if self.train_steps % self.target_update_frequency == 0:
+                self.target_model.load_state_dict(self.model.state_dict())
 
             if self.epsilon > self.epsilon_min:
                 self.epsilon -= self.epsilon_decay
