@@ -31,9 +31,9 @@ python3 run.py
 tensorboard --logdir ./logs
 ```
 
-- Play a game with an existing model (`sample.pt` is a previously trained model):
+- Play a game with an existing model (provide the path to a trained model):
 ```shell
-python3 run_model.py sample.pt
+python3 run_model.py <model_path>
 ```
 
 
