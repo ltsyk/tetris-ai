@@ -1,8 +1,13 @@
 import random
-import cv2
+from time import sleep
+
 import numpy as np
 from PIL import Image
-from time import sleep
+
+try:
+    import cv2
+except Exception:  # pragma: no cover - optional dependency
+    cv2 = None
 
 # Tetris game class
 class Tetris:
@@ -69,9 +74,8 @@ class Tetris:
 
 
     def __init__(self):
-        # start separate thread for window handling to avoid freezes
-        cv2.startWindowThread()
-        cv2.namedWindow('image', cv2.WINDOW_AUTOSIZE)
+        self._window_initialized = False
+        self._rotation_cache = {}
         self.reset()
 
     
@@ -89,14 +93,18 @@ class Tetris:
 
     def _get_rotated_piece(self):
         '''Returns the current piece, including rotation'''
-        return Tetris.TETROMINOS[self.current_piece][self.current_rotation]
+        key = (self.current_piece, self.current_rotation)
+        piece = self._rotation_cache.get(key)
+        if piece is None:
+            piece = np.array(Tetris.TETROMINOS[self.current_piece][self.current_rotation])
+            self._rotation_cache[key] = piece
+        return piece
 
 
     def _get_complete_board(self):
         '''Returns the complete board, including the current piece'''
-        piece = self._get_rotated_piece()
-        piece = [np.add(x, self.current_pos) for x in piece]
-        board = [x[:] for x in self.board]
+        piece = self._get_rotated_piece() + self.current_pos
+        board = [row[:] for row in self.board]
         for x, y in piece:
             board[y][x] = Tetris.MAP_PLAYER
         return board
@@ -155,35 +163,31 @@ class Tetris:
 
     def _add_piece_to_board(self, piece, pos):
         '''Place a piece in the board, returning the resulting board'''        
-        board = [x[:] for x in self.board]
+        board = [row[:] for row in self.board]
+        px, py = int(pos[0]), int(pos[1])
         for x, y in piece:
-            board[y + pos[1]][x + pos[0]] = Tetris.MAP_BLOCK
+            board[y + py][x + px] = Tetris.MAP_BLOCK
         return board
 
 
     def _clear_lines(self, board):
         '''Clears completed lines in a board'''
-        # Check if lines can be cleared
-        lines_to_clear = [index for index, row in enumerate(board) if sum(row) == Tetris.BOARD_WIDTH]
-        if lines_to_clear:
-            board = [row for index, row in enumerate(board) if index not in lines_to_clear]
-            # Add new lines at the top
-            for _ in lines_to_clear:
-                board.insert(0, [0 for _ in range(Tetris.BOARD_WIDTH)])
-        return len(lines_to_clear), board
+        board_np = np.array(board)
+        full_lines = np.where(np.all(board_np == Tetris.MAP_BLOCK, axis=1))[0]
+        if full_lines.size:
+            board_np = np.delete(board_np, full_lines, axis=0)
+            new_rows = np.zeros((full_lines.size, Tetris.BOARD_WIDTH), dtype=int)
+            board_np = np.vstack((new_rows, board_np))
+        return int(full_lines.size), board_np.tolist()
 
 
     def _number_of_holes(self, board):
-        '''Number of holes in the board (empty sqquare with at least one block above it)'''
-        holes = 0
-
-        for col in zip(*board):
-            i = 0
-            while i < Tetris.BOARD_HEIGHT and col[i] != Tetris.MAP_BLOCK:
-                i += 1
-            holes += len([x for x in col[i+1:] if x == Tetris.MAP_EMPTY])
-
-        return holes
+        '''Number of holes in the board (empty square with at least one block above it)'''
+        board_np = np.array(board)
+        filled = board_np == Tetris.MAP_BLOCK
+        filled_cumsum = np.cumsum(filled, axis=0)
+        holes = np.sum((board_np == Tetris.MAP_EMPTY) & (filled_cumsum > 0))
+        return int(holes)
 
 
     def _bumpiness(self, board):
@@ -249,13 +253,17 @@ class Tetris:
 
         # For all rotations
         for rotation in rotations:
-            piece = Tetris.TETROMINOS[piece_id][rotation]
-            min_x = min([p[0] for p in piece])
-            max_x = max([p[0] for p in piece])
+            key = (piece_id, rotation)
+            piece = self._rotation_cache.get(key)
+            if piece is None:
+                piece = np.array(Tetris.TETROMINOS[piece_id][rotation])
+                self._rotation_cache[key] = piece
+            min_x = int(piece[:, 0].min())
+            max_x = int(piece[:, 0].max())
 
             # For all positions
             for x in range(-min_x, Tetris.BOARD_WIDTH - max_x):
-                pos = [x, 0]
+                pos = np.array([x, 0])
 
                 # Drop piece
                 while not self._check_collision(piece, pos):
@@ -305,12 +313,24 @@ class Tetris:
 
     def render(self):
         '''Renders the current board'''
+        if cv2 is None:
+            raise ImportError('OpenCV is required for rendering')
+        if not self._window_initialized:
+            cv2.startWindowThread()
+            cv2.namedWindow('image', cv2.WINDOW_AUTOSIZE)
+            self._window_initialized = True
         img = [Tetris.COLORS[p] for row in self._get_complete_board() for p in row]
         img = np.array(img).reshape(Tetris.BOARD_HEIGHT, Tetris.BOARD_WIDTH, 3).astype(np.uint8)
-        img = img[..., ::-1] # Convert RRG to BGR (used by cv2)
+        img = img[..., ::-1]  # Convert RRG to BGR (used by cv2)
         img = Image.fromarray(img, 'RGB')
         img = img.resize((Tetris.BOARD_WIDTH * 25, Tetris.BOARD_HEIGHT * 25), Image.NEAREST)
         img = np.array(img)
         cv2.putText(img, str(self.score), (22, 22), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 1)
         cv2.imshow('image', np.array(img))
         cv2.waitKey(1)
+
+    def close(self):
+        '''Releases rendering resources'''
+        if cv2 is not None and self._window_initialized:
+            cv2.destroyAllWindows()
+            self._window_initialized = False
